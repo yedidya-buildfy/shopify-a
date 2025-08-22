@@ -5,7 +5,11 @@ import { auth } from './firebase-config.js';
 // DOM elements
 const promptInput = document.getElementById('promptInput');
 const sendButton = document.getElementById('sendButton');
-const logoutButton = document.getElementById('logoutButton');
+const sideNavLogoutButton = document.getElementById('sideNavLogout');
+const sideNavTrigger = document.querySelector('.side-nav-trigger');
+const sideNav = document.getElementById('sideNav');
+const projectsList = document.getElementById('projectsList');
+const projectsPlaceholder = document.getElementById('projectsPlaceholder');
 const heroSection = document.getElementById('heroSection');
 const resultsSection = document.getElementById('resultsSection');
 const codeOutput = document.getElementById('codeOutput');
@@ -23,6 +27,8 @@ let currentUser = null;
 let isGenerating = false;
 let currentPreviewUrl = null;
 let currentSandboxId = null;
+let userProjects = [];
+let isLoadingProject = false;
 
 // Auto-resize textarea
 function autoResizeTextarea(textarea) {
@@ -111,6 +117,11 @@ async function handleSendPrompt() {
         autoResizeTextarea(promptInput);
         
         console.log('Code generation successful:', result);
+        
+        // Refresh projects list if a new project was created
+        if (result.projectId) {
+            loadUserProjects();
+        }
         
     } catch (error) {
         console.error('Error generating code:', error);
@@ -245,7 +256,7 @@ copyCodeButton.addEventListener('click', async () => {
 sendButton.addEventListener('click', handleSendPrompt);
 
 // Logout functionality
-logoutButton.addEventListener('click', async () => {
+const handleLogout = async () => {
     try {
         await signOut(auth);
         window.location.href = 'index.html';
@@ -253,7 +264,222 @@ logoutButton.addEventListener('click', async () => {
         console.error('Logout error:', error);
         alert('Failed to logout. Please try again.');
     }
+};
+
+sideNavLogoutButton.addEventListener('click', handleLogout);
+
+// Side Navigation hover functionality
+let sideNavTimer = null;
+
+function showSideNav() {
+    clearTimeout(sideNavTimer);
+    sideNav.classList.add('show');
+}
+
+function hideSideNav() {
+    sideNavTimer = setTimeout(() => {
+        sideNav.classList.remove('show');
+    }, 300); // Small delay to prevent flickering
+}
+
+// Event listeners for side navigation
+sideNavTrigger.addEventListener('mouseenter', showSideNav);
+sideNavTrigger.addEventListener('mouseleave', hideSideNav);
+sideNav.addEventListener('mouseenter', showSideNav);
+sideNav.addEventListener('mouseleave', hideSideNav);
+
+// Additional safety: Check mouse position periodically
+let mouseCheckInterval = null;
+
+function startMouseTracking() {
+    mouseCheckInterval = setInterval(() => {
+        // Only track when side nav is visible
+        if (sideNav.classList.contains('show')) {
+            const rect = sideNav.getBoundingClientRect();
+            const triggerRect = sideNavTrigger.getBoundingClientRect();
+            
+            // Get current mouse position (if available)
+            if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
+                const isOverNav = window.lastMouseX >= 0 && window.lastMouseX <= rect.right && 
+                                window.lastMouseY >= 0 && window.lastMouseY <= window.innerHeight;
+                const isOverTrigger = window.lastMouseX >= triggerRect.left && window.lastMouseX <= triggerRect.right &&
+                                    window.lastMouseY >= triggerRect.top && window.lastMouseY <= triggerRect.bottom;
+                
+                if (!isOverNav && !isOverTrigger) {
+                    hideSideNav();
+                }
+            }
+        }
+    }, 100);
+}
+
+// Track mouse position globally
+document.addEventListener('mousemove', (e) => {
+    window.lastMouseX = e.clientX;
+    window.lastMouseY = e.clientY;
 });
+
+// Start mouse tracking
+startMouseTracking();
+
+// Project Management Functions
+async function loadUserProjects() {
+    try {
+        if (!currentUser) {
+            console.log('No current user, cannot load projects');
+            return;
+        }
+        
+        console.log('Loading projects for user:', currentUser.email);
+        const idToken = await getIdToken(currentUser);
+        console.log('Got Firebase ID token, length:', idToken.length);
+        
+        const response = await fetch(`${API_BASE_URL}/projects`, {
+            headers: {
+                'Authorization': `Bearer ${idToken}`
+            }
+        });
+        
+        const result = await response.json();
+        console.log('Projects API response:', result);
+        
+        if (response.ok) {
+            userProjects = result.projects || [];
+            console.log('Loaded', userProjects.length, 'projects');
+            displayProjects();
+        } else {
+            console.error('Failed to load projects:', result.message);
+            showProjectsError('Failed to load projects');
+        }
+        
+    } catch (error) {
+        console.error('Error loading projects:', error);
+        showProjectsError('Error loading projects');
+    }
+}
+
+function displayProjects() {
+    if (userProjects.length === 0) {
+        projectsPlaceholder.innerHTML = `
+            <span>No projects yet</span>
+            <small>Create your first Shopify app!</small>
+        `;
+        return;
+    }
+    
+    // Hide placeholder
+    projectsPlaceholder.style.display = 'none';
+    
+    // Clear existing projects
+    const existingProjects = projectsList.querySelectorAll('.project-item');
+    existingProjects.forEach(item => item.remove());
+    
+    // Add each project
+    userProjects.forEach(project => {
+        const projectElement = createProjectElement(project);
+        projectsList.appendChild(projectElement);
+    });
+}
+
+function createProjectElement(project) {
+    const projectDiv = document.createElement('div');
+    projectDiv.className = 'project-item';
+    projectDiv.dataset.projectId = project.id;
+    
+    const createdDate = new Date(project.createdAt).toLocaleDateString();
+    
+    projectDiv.innerHTML = `
+        <div class="project-name">${project.name}</div>
+        <div class="project-description">${project.description}</div>
+        <div class="project-date">${createdDate}</div>
+        <div class="project-loading-overlay">
+            <div class="loading-spinner small"></div>
+        </div>
+    `;
+    
+    // Add click handler
+    projectDiv.addEventListener('click', () => loadProject(project.id));
+    
+    return projectDiv;
+}
+
+function showProjectsError(message) {
+    projectsPlaceholder.innerHTML = `
+        <span>⚠️ ${message}</span>
+        <button id="retryProjectsBtn" style="margin-top: 8px; padding: 4px 8px; background: var(--shopify-green); color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+            Retry
+        </button>
+    `;
+    
+    // Add event listener to retry button
+    const retryBtn = document.getElementById('retryProjectsBtn');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', loadUserProjects);
+    }
+}
+
+async function loadProject(projectId) {
+    if (isLoadingProject || !currentUser) return;
+    
+    try {
+        isLoadingProject = true;
+        
+        // Show loading state on the project item
+        const projectElement = document.querySelector(`[data-project-id="${projectId}"]`);
+        if (projectElement) {
+            projectElement.classList.add('loading');
+        }
+        
+        // Show loading state in results section
+        showResultsSection();
+        showLoadingState();
+        
+        const idToken = await getIdToken(currentUser);
+        const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+            headers: {
+                'Authorization': `Bearer ${idToken}`
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to load project');
+        }
+        
+        const project = result.project;
+        
+        // Display the project code
+        const codeContent = Object.entries(project.files || {})
+            .map(([filename, content]) => `// ${filename}\n${content}`)
+            .join('\n\n');
+        
+        displayGeneratedCode(codeContent);
+        
+        // Update preview button and URLs
+        if (project.previewUrl) {
+            currentPreviewUrl = project.previewUrl;
+            currentSandboxId = project.sandboxId;
+            showPreviewButton();
+        } else {
+            hidePreviewButton();
+        }
+        
+        console.log('Project loaded successfully:', project.name);
+        
+    } catch (error) {
+        console.error('Error loading project:', error);
+        showErrorState(error.message);
+    } finally {
+        isLoadingProject = false;
+        
+        // Remove loading state from project item
+        const projectElement = document.querySelector(`[data-project-id="${projectId}"]`);
+        if (projectElement) {
+            projectElement.classList.remove('loading');
+        }
+    }
+}
 
 // Auth state observer - redirect if not authenticated
 onAuthStateChanged(auth, (user) => {
@@ -264,8 +490,8 @@ onAuthStateChanged(auth, (user) => {
         currentUser = user;
         console.log('User authenticated:', user.email);
         
-        // Update UI with user info if needed
-        // You could show user email in the UI here
+        // Load user projects
+        loadUserProjects();
     }
 });
 

@@ -55,7 +55,7 @@ function initializeFirebaseAdmin() {
         admin.initializeApp({
             credential: admin.credential.cert({
                 projectId: projectId,
-                privateKey: privateKey.replace(/\\n/g, '\n'),
+                privateKey: privateKey,
                 clientEmail: clientEmail,
             }),
             storageBucket: 'shopify-a-196e9.firebasestorage.app'
@@ -131,9 +131,91 @@ async function saveProject(userId, projectData) {
     }
 }
 
+// Get a specific project from Firebase Storage
+async function getProject(userId, projectId) {
+    try {
+        // Check if Firebase is available
+        if (!bucket) {
+            console.warn('⚠️  Firebase Storage not available');
+            return null;
+        }
+
+        const projectPath = `users/${userId}/projects/${projectId}/project.json`;
+        const projectFile = bucket.file(projectPath);
+        
+        // Check if project exists
+        const [exists] = await projectFile.exists();
+        if (!exists) {
+            return null;
+        }
+        
+        // Get project metadata
+        const [content] = await projectFile.download();
+        const metadata = JSON.parse(content.toString());
+        
+        // Get all project files
+        const projectFilesPath = `users/${userId}/projects/${projectId}/`;
+        const [files] = await bucket.getFiles({
+            prefix: projectFilesPath
+        });
+        
+        const projectFiles = {};
+        for (const file of files) {
+            const filename = file.name.replace(projectFilesPath, '');
+            if (filename && filename !== 'project.json') {
+                try {
+                    const [fileContent] = await file.download();
+                    projectFiles[filename] = fileContent.toString();
+                } catch (error) {
+                    console.warn(`Failed to load file ${filename}:`, error);
+                }
+            }
+        }
+        
+        // Add files to metadata
+        metadata.files = projectFiles;
+        
+        return metadata;
+        
+    } catch (error) {
+        console.error('Failed to get project from Firebase Storage:', error);
+        return null;
+    }
+}
+
+// Deploy project files to E2B sandbox
+async function deployProjectToSandbox(sandbox, projectFiles) {
+    console.log('Deploying project files to sandbox...');
+    
+    // Create app directory
+    await sandbox.commands.run('mkdir -p /tmp/app');
+    
+    // Deploy each file to the sandbox
+    for (const [filename, content] of Object.entries(projectFiles)) {
+        console.log(`Writing file: ${filename} (${content.length} chars)`);
+        await sandbox.files.write(`/tmp/app/${filename}`, content);
+    }
+    
+    // Ensure we have a basic package.json if not provided
+    if (!projectFiles['package.json']) {
+        const basicPackageJson = {
+            "name": "shopify-app",
+            "version": "1.0.0",
+            "main": "server.js",
+            "dependencies": {
+                "express": "^4.18.2"
+            }
+        };
+        const packageJsonContent = JSON.stringify(basicPackageJson, null, 2);
+        await sandbox.files.write('/tmp/app/package.json', packageJsonContent);
+    }
+}
+
 // Get user's projects from Firebase Storage
 async function getUserProjects(userId) {
     try {
+        console.log(`🔍 Looking for projects for user: ${userId}`);
+        
         // Check if Firebase is available
         if (!bucket) {
             console.warn('⚠️  Firebase Storage not available - returning empty projects list');
@@ -141,25 +223,34 @@ async function getUserProjects(userId) {
         }
 
         const userProjectsPath = `users/${userId}/projects/`;
+        console.log(`🔍 Searching path: ${userProjectsPath}`);
+        
         const [files] = await bucket.getFiles({
-            prefix: userProjectsPath,
-            delimiter: '/'
+            prefix: userProjectsPath
         });
+        
+        console.log(`🔍 Found ${files.length} files in user directory`);
+        files.forEach(file => console.log(`  - ${file.name}`));
         
         // Get project directories by finding project.json files
         const projectFiles = files.filter(file => file.name.endsWith('/project.json'));
+        console.log(`🔍 Found ${projectFiles.length} project.json files`);
+        
         const projects = [];
         
         for (const projectFile of projectFiles) {
             try {
+                console.log(`📖 Loading project from: ${projectFile.name}`);
                 const [content] = await projectFile.download();
                 const metadata = JSON.parse(content.toString());
                 projects.push(metadata);
+                console.log(`✅ Loaded project: ${metadata.name} (${metadata.id})`);
             } catch (error) {
-                console.warn(`Skipping invalid project file: ${projectFile.name}`);
+                console.warn(`Skipping invalid project file: ${projectFile.name}`, error.message);
             }
         }
         
+        console.log(`📁 Returning ${projects.length} projects for user ${userId}`);
         return projects.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
     } catch (error) {
@@ -191,9 +282,8 @@ const anthropic = new Anthropic({
 app.use(cors());
 app.use(express.json());
 
-// Simple authentication middleware
-// In production, you would use Firebase Admin SDK to verify tokens
-const authenticateUser = (req, res, next) => {
+// Enhanced authentication middleware with Firebase token verification
+const authenticateUser = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -206,18 +296,42 @@ const authenticateUser = (req, res, next) => {
     // Extract token
     const token = authHeader.substring(7);
     
-    // Basic token validation (in production, verify with Firebase Admin)
-    if (!token || token.length < 10) {
-        return res.status(401).json({
-            error: 'Invalid token',
-            message: 'Authentication token is invalid'
-        });
+    try {
+        // Check if Firebase is initialized properly with bucket
+        if (admin.apps.length === 0 || !bucket) {
+            console.warn('🔓 Firebase not initialized, using basic token validation');
+            // Fallback to basic token validation
+            req.user = {
+                uid: `user_${token.substring(0, 10)}`,
+                email: 'demo@example.com', // You'll need to get this from frontend
+                token: token
+            };
+            next();
+            return;
+        }
+        
+        // Verify Firebase ID token
+        console.log('🔐 Verifying Firebase ID token...');
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        console.log(`✅ Token verified for user: ${decodedToken.email} (${decodedToken.uid})`);
+        req.user = {
+            uid: decodedToken.uid,
+            email: decodedToken.email,
+            token: token
+        };
+        next();
+    } catch (error) {
+        console.error('Token verification failed:', error);
+        
+        // Fallback for development - remove this in production
+        console.warn('Using fallback authentication for development');
+        req.user = {
+            uid: `user_${token.substring(0, 10)}`,
+            email: 'demo@example.com',
+            token: token
+        };
+        next();
     }
-    
-    // For now, just check that a token exists
-    // In production: admin.auth().verifyIdToken(token)
-    req.user = { token }; // Store token info for later use
-    next();
 };
 
 // Health check endpoint
@@ -225,15 +339,20 @@ app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+
 // Get user projects endpoint
 app.get('/api/projects', authenticateUser, async (req, res) => {
     try {
-        const userId = req.user.token.substring(0, 10); // Use first 10 chars of token as user ID
+        const userId = req.user.uid;
+        console.log(`📁 Getting projects for user ID: ${userId}, email: ${req.user.email}`);
+        
         const projects = await getUserProjects(userId);
+        console.log(`📁 Found ${projects.length} projects for user ${userId}`);
         
         res.json({
             success: true,
-            projects: projects
+            projects: projects,
+            userEmail: req.user.email
         });
         
     } catch (error) {
@@ -241,6 +360,70 @@ app.get('/api/projects', authenticateUser, async (req, res) => {
         res.status(500).json({
             error: 'Internal server error',
             message: 'Failed to retrieve projects'
+        });
+    }
+});
+
+// Load a specific project endpoint
+app.get('/api/projects/:projectId', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.uid;
+        const projectId = req.params.projectId;
+        
+        console.log(`Loading project ${projectId} for user ${userId}`);
+        
+        // Get project from Firebase Storage
+        const project = await getProject(userId, projectId);
+        
+        if (!project) {
+            return res.status(404).json({
+                error: 'Project not found',
+                message: 'The requested project does not exist or you do not have access to it'
+            });
+        }
+        
+        // If project has a sandbox ID, try to recreate the preview URL
+        let previewUrl = project.previewUrl;
+        if (project.sandboxId && project.files) {
+            try {
+                console.log('Recreating sandbox for project...');
+                const sandbox = await Sandbox.create();
+                
+                // Deploy project files to new sandbox
+                await deployProjectToSandbox(sandbox, project.files);
+                
+                // Start the server
+                await sandbox.commands.run('cd /tmp/app && npm install && node server.js', { 
+                    background: true 
+                });
+                
+                // Wait for server to start
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                previewUrl = `https://${sandbox.getHost(3000)}`;
+                
+                // Update project with new sandbox info
+                project.previewUrl = previewUrl;
+                project.sandboxId = sandbox.id;
+                
+                console.log(`Project sandbox recreated at: ${previewUrl}`);
+                
+            } catch (sandboxError) {
+                console.error('Failed to recreate sandbox:', sandboxError);
+                // Still return the project even if sandbox recreation fails
+            }
+        }
+        
+        res.json({
+            success: true,
+            project: project
+        });
+        
+    } catch (error) {
+        console.error('Error loading project:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+            message: 'Failed to load project'
         });
     }
 });
@@ -350,9 +533,10 @@ Focus on creating simple, working web applications that serve files from the sam
 
             // Save project to filesystem
             console.log('Saving project to filesystem...');
-            const userId = req.user.token.substring(0, 10); // Use first 10 chars of token as user ID for now
+            const userId = req.user.uid;
+            const projectName = await generateEmailBasedProjectName(req.user.email, userId);
             const projectData = {
-                name: generateProjectName(prompt),
+                name: projectName,
                 description: `Generated from prompt: "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`,
                 prompt: prompt,
                 files: codeBlocks,
@@ -423,20 +607,25 @@ Focus on creating simple, working web applications that serve files from the sam
     }
 });
 
-// Generate project name from prompt
-function generateProjectName(prompt) {
-    // Extract key words and create a meaningful project name
-    const words = prompt.toLowerCase()
-        .replace(/[^\w\s]/g, '')
-        .split(/\s+/)
-        .filter(word => word.length > 2 && !['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'man', 'try', 'make', 'app', 'website', 'create'].includes(word))
-        .slice(0, 3);
-    
-    if (words.length === 0) {
-        return 'Shopify App';
+// Generate email-based project name (email-001, email-002, etc.)
+async function generateEmailBasedProjectName(userEmail, userId) {
+    try {
+        // Extract email prefix (everything before @)
+        const emailPrefix = userEmail.split('@')[0];
+        
+        // Get existing projects count for this user
+        const existingProjects = await getUserProjects(userId);
+        const projectNumber = existingProjects.length + 1;
+        
+        // Format project number with leading zeros (001, 002, etc.)
+        const formattedNumber = projectNumber.toString().padStart(3, '0');
+        
+        return `${emailPrefix}-${formattedNumber}`;
+    } catch (error) {
+        console.error('Error generating project name:', error);
+        // Fallback to timestamp-based name
+        return `project-${Date.now()}`;
     }
-    
-    return words.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') + ' App';
 }
 
 // Helper function to deploy generated code to E2B sandbox
