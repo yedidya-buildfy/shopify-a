@@ -69,17 +69,18 @@ app.post('/api/generate-code', authenticateUser, async (req, res) => {
 
 When generating code:
 1. Create a simple, self-contained Node.js/Express web application
-2. Structure the code to run as a single server.js file or simple file structure
+2. Structure the code to run as a single server.js file
 3. Use Express.js for the web server
-4. Include a basic HTML frontend with inline CSS/JS or separate files
+4. Include HTML content served directly from the server or as static files in the same directory
 5. Make the app listen on port 3000
 6. Focus on practical, working functionality
 7. Ensure all dependencies are common packages (express, etc.)
+8. IMPORTANT: If serving static files, use express.static(__dirname) to serve from the current directory, NOT from a 'public' subdirectory
 
 For each request, provide:
 1. A brief explanation of what the app does
-2. The main server.js file code
-3. Any additional HTML/CSS/JS files needed
+2. The main server.js file code that serves content from the current directory
+3. Any additional HTML/CSS/JS files needed (these will be in the same directory as server.js)
 4. A package.json with dependencies
 5. Clear structure that can be deployed and run immediately
 
@@ -91,17 +92,24 @@ Example structure:
 \`\`\`javascript
 // server.js
 const express = require('express');
+const path = require('path');
 const app = express();
 const port = 3000;
 
-// ... app logic here ...
+// Serve static files from current directory
+app.use(express.static(__dirname));
+
+// Default route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 app.listen(port, () => {
     console.log(\`App running at http://localhost:\${port}\`);
 });
 \`\`\`
 
-Focus on creating simple, working web applications that demonstrate the requested functionality.`;
+Focus on creating simple, working web applications that serve files from the same directory as server.js.`;
 
         const message = await anthropic.messages.create({
             model: "claude-3-5-sonnet-20241022",
@@ -126,6 +134,11 @@ Focus on creating simple, working web applications that demonstrate the requeste
         try {
             // Extract and deploy the generated code files to the sandbox
             await deployCodeToSandbox(sandbox, generatedCode);
+            
+            // Verify files were deployed correctly
+            console.log('Verifying deployed files...');
+            const listFiles = await sandbox.commands.run('ls -la /tmp/app');
+            console.log('Files in /tmp/app:', listFiles.stdout);
             
             // Start the web server in the sandbox
             console.log('Starting web server in sandbox...');
@@ -208,11 +221,12 @@ async function deployCodeToSandbox(sandbox, generatedCode) {
     
     // Extract code blocks from the generated response
     const codeBlocks = extractCodeBlocks(generatedCode);
+    console.log('Extracted code blocks:', Object.keys(codeBlocks));
     
     // Deploy each file to the sandbox
     for (const [filename, content] of Object.entries(codeBlocks)) {
-        console.log(`Writing file: ${filename}`);
-        await sandbox.filesystem.write(`/tmp/app/${filename}`, content);
+        console.log(`Writing file: ${filename} (${content.length} chars)`);
+        await sandbox.files.write(`/tmp/app/${filename}`, content);
     }
     
     // Ensure we have a basic package.json if not provided
@@ -225,7 +239,7 @@ async function deployCodeToSandbox(sandbox, generatedCode) {
                 "express": "^4.18.2"
             }
         };
-        await sandbox.filesystem.write('/tmp/app/package.json', JSON.stringify(basicPackageJson, null, 2));
+        await sandbox.files.write('/tmp/app/package.json', JSON.stringify(basicPackageJson, null, 2));
     }
 }
 
