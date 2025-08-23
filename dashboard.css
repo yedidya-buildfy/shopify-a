@@ -182,10 +182,15 @@ body {
     position: fixed;
     left: 0;
     top: 0;
-    width: 20px;
+    width: 30px;
     height: 100vh;
     z-index: 101;
     background: transparent;
+    transition: background 0.3s ease;
+}
+
+.side-nav-trigger:hover {
+    background: linear-gradient(90deg, rgba(0, 166, 81, 0.1) 0%, transparent 100%);
 }
 
 .side-nav {
@@ -400,6 +405,10 @@ body {
     .side-nav {
         width: 260px;
         left: -260px;
+    }
+    
+    .side-nav-trigger {
+        width: 25px;
     }
     
     .nav-content {

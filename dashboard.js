@@ -270,57 +270,85 @@ sideNavLogoutButton.addEventListener('click', handleLogout);
 
 // Side Navigation hover functionality
 let sideNavTimer = null;
+let sideNavVisible = false;
 
 function showSideNav() {
     clearTimeout(sideNavTimer);
-    sideNav.classList.add('show');
+    if (!sideNavVisible) {
+        sideNav.classList.add('show');
+        sideNavVisible = true;
+        console.log('Side nav shown');
+    }
 }
 
 function hideSideNav() {
     sideNavTimer = setTimeout(() => {
         sideNav.classList.remove('show');
-    }, 300); // Small delay to prevent flickering
+        sideNavVisible = false;
+        console.log('Side nav hidden');
+    }, 500); // Increased delay for more stability
 }
 
-// Event listeners for side navigation
-sideNavTrigger.addEventListener('mouseenter', showSideNav);
-sideNavTrigger.addEventListener('mouseleave', hideSideNav);
-sideNav.addEventListener('mouseenter', showSideNav);
-sideNav.addEventListener('mouseleave', hideSideNav);
+// Enhanced mouse position tracking with better sensitivity
+let lastMouseX = 0;
+let lastMouseY = 0;
 
-// Additional safety: Check mouse position periodically
-let mouseCheckInterval = null;
-
-function startMouseTracking() {
-    mouseCheckInterval = setInterval(() => {
-        // Only track when side nav is visible
-        if (sideNav.classList.contains('show')) {
-            const rect = sideNav.getBoundingClientRect();
-            const triggerRect = sideNavTrigger.getBoundingClientRect();
-            
-            // Get current mouse position (if available)
-            if (window.lastMouseX !== undefined && window.lastMouseY !== undefined) {
-                const isOverNav = window.lastMouseX >= 0 && window.lastMouseX <= rect.right && 
-                                window.lastMouseY >= 0 && window.lastMouseY <= window.innerHeight;
-                const isOverTrigger = window.lastMouseX >= triggerRect.left && window.lastMouseX <= triggerRect.right &&
-                                    window.lastMouseY >= triggerRect.top && window.lastMouseY <= triggerRect.bottom;
-                
-                if (!isOverNav && !isOverTrigger) {
-                    hideSideNav();
-                }
-            }
-        }
-    }, 100);
-}
-
-// Track mouse position globally
 document.addEventListener('mousemove', (e) => {
-    window.lastMouseX = e.clientX;
-    window.lastMouseY = e.clientY;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    
+    // Responsive trigger width: 30px on desktop, 25px on mobile
+    const triggerWidth = window.innerWidth <= 768 ? 25 : 30;
+    const navWidth = window.innerWidth <= 768 ? 260 : 280;
+    const hideThreshold = navWidth + 40; // Nav width + 40px buffer
+    
+    // Show nav if mouse is in left edge area
+    if (e.clientX <= triggerWidth) {
+        showSideNav();
+    }
+    
+    // Hide nav if mouse moves significantly away from left side and nav area
+    if (sideNavVisible && e.clientX > hideThreshold) {
+        hideSideNav();
+    }
 });
 
-// Start mouse tracking
-startMouseTracking();
+// Event listeners for side navigation elements
+sideNavTrigger.addEventListener('mouseenter', showSideNav);
+sideNav.addEventListener('mouseenter', showSideNav);
+
+// More generous mouseleave handling
+sideNav.addEventListener('mouseleave', (e) => {
+    const navWidth = window.innerWidth <= 768 ? 260 : 280;
+    const hideThreshold = navWidth + 40;
+    
+    // Only hide if mouse is moving away from the left side entirely
+    if (e.clientX > hideThreshold) {
+        hideSideNav();
+    }
+});
+
+// Additional continuous tracking for stability
+setInterval(() => {
+    const triggerWidth = window.innerWidth <= 768 ? 25 : 30;
+    const navWidth = window.innerWidth <= 768 ? 260 : 280;
+    const hideThreshold = navWidth + 40;
+    
+    if (sideNavVisible) {
+        // Keep nav open as long as mouse is in the general left area
+        if (lastMouseX <= hideThreshold) {
+            clearTimeout(sideNavTimer);
+        } else if (lastMouseX > hideThreshold) {
+            // Only hide if mouse is clearly away from the nav area
+            hideSideNav();
+        }
+    } else {
+        // Show nav if mouse enters left edge
+        if (lastMouseX <= triggerWidth) {
+            showSideNav();
+        }
+    }
+}, 50); // Check every 50ms for smooth responsiveness
 
 // Project Management Functions
 async function loadUserProjects() {
