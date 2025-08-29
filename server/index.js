@@ -387,7 +387,7 @@ app.get('/api/projects/:projectId', authenticateUser, async (req, res) => {
         if (project.sandboxId && project.files) {
             try {
                 console.log('Recreating sandbox for project...');
-                const sandbox = await Sandbox.create();
+                const sandbox = await Sandbox.create('47xhltp24c20rrk3ntgv');
                 
                 // Deploy project files to new sandbox
                 await deployProjectToSandbox(sandbox, project.files);
@@ -507,7 +507,7 @@ Focus on creating simple, working web applications that serve files from the sam
 
         // Create E2B sandbox and deploy the code
         console.log('Creating E2B sandbox...');
-        const sandbox = await Sandbox.create();
+        const sandbox = await Sandbox.create('47xhltp24c20rrk3ntgv');
         
         try {
             // Extract and deploy the generated code files to the sandbox
