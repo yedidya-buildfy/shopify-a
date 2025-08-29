@@ -110,9 +110,9 @@ loginFormElement.addEventListener('submit', async (e) => {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         showMessage('Login successful! Welcome back.', 'success');
         
-        // Redirect to main app or dashboard
+        // Redirect to app setup page
         setTimeout(() => {
-            window.location.href = 'dashboard.html'; // You'll need to create this
+            window.location.href = 'app-setup.html';
         }, 1500);
         
     } catch (error) {

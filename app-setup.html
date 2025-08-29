@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Shopify App - Shopify AI App Builder</title>
+    <link rel="stylesheet" href="app-setup.css">
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-header">
+            <h1>Create Your Shopify App</h1>
+            <p>Set up a new Shopify app project with TypeScript and React</p>
+        </div>
+
+        <!-- App Name Input Section -->
+        <div class="setup-section" id="appNameSection">
+            <div class="setup-card">
+                <div class="card-header">
+                    <div class="step-indicator">
+                        <span class="step-number">1</span>
+                        <span class="step-title">App Configuration</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="input-group">
+                        <label for="appName">App Name</label>
+                        <input type="text" id="appName" placeholder="My Awesome Shopify App" required>
+                        <small class="input-help">Choose a name for your Shopify app (letters, numbers, spaces, and dashes only)</small>
+                    </div>
+                    <div class="app-info">
+                        <div class="info-item">
+                            <span class="info-label">Template:</span>
+                            <span class="info-value">TypeScript + React</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">CLI Version:</span>
+                            <span class="info-value">Latest Shopify CLI</span>
+                        </div>
+                    </div>
+                    <button id="createAppButton" class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                            <polyline points="14,2 14,8 20,8"></polyline>
+                        </svg>
+                        Create New Shopify App
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Section (Initially Hidden) -->
+        <div class="setup-section" id="progressSection" style="display: none;">
+            <div class="setup-card">
+                <div class="card-header">
+                    <div class="step-indicator">
+                        <span class="step-number">2</span>
+                        <span class="step-title">App Creation in Progress</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="progress-info">
+                        <div class="progress-icon">
+                            <div class="loading-spinner"></div>
+                        </div>
+                        <div class="progress-text">
+                            <h3 id="progressTitle">Initializing Shopify CLI...</h3>
+                            <p id="progressDescription">This may take 5-15 minutes. Please be patient while we set up your app.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-steps">
+                        <div class="progress-step" id="step-init">
+                            <div class="step-icon">
+                                <div class="step-loader"></div>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-name">Initializing Project</div>
+                                <div class="step-status">Starting CLI initialization...</div>
+                            </div>
+                        </div>
+                        <div class="progress-step" id="step-auth">
+                            <div class="step-icon">
+                                <div class="step-loader"></div>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-name">Authentication</div>
+                                <div class="step-status">Waiting for CLI to start...</div>
+                            </div>
+                        </div>
+                        <div class="progress-step" id="step-complete">
+                            <div class="step-icon">
+                                <div class="step-loader"></div>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-name">Finalizing Setup</div>
+                                <div class="step-status">Waiting for previous steps...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CLI Output Section -->
+                    <div class="cli-output-section">
+                        <div class="cli-header">
+                            <h4>CLI Output</h4>
+                            <button id="toggleOutput" class="toggle-btn">Show Details</button>
+                        </div>
+                        <div class="cli-output" id="cliOutput" style="display: none;">
+                            <div class="output-content" id="outputContent">
+                                <div class="output-line">Starting Shopify CLI...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Authentication Section (Initially Hidden) -->
+        <div class="setup-section" id="authSection" style="display: none;">
+            <div class="setup-card">
+                <div class="card-header">
+                    <div class="step-indicator">
+                        <span class="step-number">3</span>
+                        <span class="step-title">Authenticate with Shopify</span>
+                    </div>
+                </div>
+                <div class="card-content">
+                    <div class="auth-info">
+                        <div class="auth-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 12l2 2 4-4"></path>
+                                <path d="M21 12c.552 0 1-.448 1-1V8c0-.552-.448-1-1-1h-1V6a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1H2c-.552 0-1 .448-1 1v3c0 .552.448 1 1 1h1v1a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4v-1h1z"></path>
+                            </svg>
+                        </div>
+                        <div class="auth-text">
+                            <h3>Authentication Required</h3>
+                            <p>Click the link below to authenticate with Shopify Partners and complete your app setup.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="auth-actions">
+                        <a id="authLink" class="auth-link" target="_blank" rel="noopener noreferrer" style="display: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15,3 21,3 21,9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                            Authenticate with Shopify Partners
+                        </a>
+                        <div class="auth-waiting" id="authWaiting">
+                            <div class="loading-spinner small"></div>
+                            <span>Waiting for authentication link...</span>
+                        </div>
+                    </div>
+                    
+                    <div class="auth-note">
+                        <p><strong>Note:</strong> After clicking the link and completing authentication in the new tab, return to this page. We'll automatically detect when you're done and continue the setup.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Section (Initially Hidden) -->
+        <div class="setup-section" id="successSection" style="display: none;">
+            <div class="setup-card success">
+                <div class="card-content">
+                    <div class="success-info">
+                        <div class="success-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 12l2 2 4-4"></path>
+                                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="success-text">
+                            <h2>🎉 Your Shopify App is Ready!</h2>
+                            <p>Your new TypeScript React Shopify app has been successfully created and configured.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="app-details" id="appDetails">
+                        <div class="detail-item">
+                            <span class="detail-label">App Name:</span>
+                            <span class="detail-value" id="finalAppName">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Created:</span>
+                            <span class="detail-value" id="creationDate">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="success-actions">
+                        <button id="goToDashboard" class="btn btn-primary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9,22 9,12 15,12 15,22"></polyline>
+                            </svg>
+                            Go to Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Section (Initially Hidden) -->
+        <div class="setup-section" id="errorSection" style="display: none;">
+            <div class="setup-card error">
+                <div class="card-content">
+                    <div class="error-info">
+                        <div class="error-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                            </svg>
+                        </div>
+                        <div class="error-text">
+                            <h3>Setup Failed</h3>
+                            <p id="errorMessage">Something went wrong during the app creation process.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="error-details" id="errorDetails" style="display: none;">
+                        <h4>Technical Details:</h4>
+                        <pre id="errorDetailsContent"></pre>
+                    </div>
+                    
+                    <div class="error-actions">
+                        <button id="retryButton" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23,4 23,10 17,10"></polyline>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                            Try Again
+                        </button>
+                        <button id="skipTodashboard" class="btn btn-secondary">
+                            Skip to Dashboard
+                        </button>
+                        <button id="showErrorDetails" class="toggle-btn">Show Details</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="setup-footer">
+            <p>Having trouble? <a href="#" id="helpLink">Get Help</a></p>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner large"></div>
+            <p>Setting up your Shopify app...</p>
+        </div>
+    </div>
+
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="app-setup.js"></script>
+</body>
+</html>

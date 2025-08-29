@@ -18,6 +18,7 @@ const newAppButton = document.getElementById('newAppButton');
 const copyCodeButton = document.getElementById('copyCodeButton');
 const previewButton = document.getElementById('previewButton');
 const dashboardContainer = document.querySelector('.dashboard-container');
+const createNewAppBtn = document.getElementById('createNewAppBtn');
 
 // API configuration
 const API_BASE_URL = 'http://localhost:3001/api';
@@ -267,6 +268,11 @@ const handleLogout = async () => {
 };
 
 sideNavLogoutButton.addEventListener('click', handleLogout);
+
+// Create New App button handler
+createNewAppBtn.addEventListener('click', () => {
+    window.location.href = 'app-setup.html';
+});
 
 // Side Navigation hover functionality
 let sideNavTimer = null;

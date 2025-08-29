@@ -256,14 +256,51 @@ body {
     margin-bottom: 30px;
 }
 
+.nav-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    gap: 0.5rem;
+}
+
 .nav-section-title {
     color: var(--text-secondary);
     font-size: 14px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 15px;
+    margin: 0;
     padding-left: 4px;
+    flex: 1;
+}
+
+.create-app-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.6rem;
+    background: var(--shopify-green);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.create-app-btn:hover {
+    background: var(--shopify-green-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 166, 81, 0.3);
+}
+
+.create-app-btn svg {
+    width: 12px;
+    height: 12px;
 }
 
 .nav-placeholder {
